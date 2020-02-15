@@ -4,6 +4,7 @@ from torch import optim
 from .DCGAN_config import _C
 import torchvision.utils as vutils
 from .DCGAN_nets import getGNet, getDNet
+from ..datasets.celeba_dataset import get_image_dataset
 
 
 class DCGANTrainer():
@@ -11,10 +12,13 @@ class DCGANTrainer():
         self.config = _C
         self.num_epochs = num_epochs
         self.device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
+
         self.netG = getGNet(self.device)
         self.netD = getDNet(self.device)
-
-        # self.device =
+        self.dataset = get_image_dataset('../../data')
+        self.dataloader = torch.utils.data.DataLoader(self.dataset,
+                                                      batch_size=_C.miniBatchSize,
+                                                      shuffle=True, num_workers=2)
 
     def train(self):
         # Initialize BCELoss function
@@ -42,7 +46,7 @@ class DCGANTrainer():
         # For each epoch
         for epoch in range(self.num_epochs):
             # For each batch in the dataloader
-            for i, data in enumerate(dataloader, 0):
+            for i, data in enumerate(self.dataloader, 0):
 
                 ############################
                 # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
@@ -97,7 +101,7 @@ class DCGANTrainer():
                 # Output training stats
                 if i % 50 == 0:
                     print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
-                          % (epoch, self.num_epochs, i, len(dataloader),
+                          % (epoch, self.num_epochs, i, len(self.dataloader),
                              errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
 
                 # Save Losses for plotting later
@@ -105,7 +109,7 @@ class DCGANTrainer():
                 D_losses.append(errD.item())
 
                 # Check how the generator is doing by saving G's output on fixed_noise
-                if (iters % 500 == 0) or ((epoch == self.num_epochs - 1) and (i == len(dataloader) - 1)):
+                if (iters % 500 == 0) or ((epoch == self.num_epochs - 1) and (i == len(self.dataloader) - 1)):
                     with torch.no_grad():
                         fake = self.netG(fixed_noise).detach().cpu()
                     img_list.append(vutils.make_grid(fake, padding=2, normalize=True))

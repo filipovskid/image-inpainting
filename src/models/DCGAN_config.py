@@ -1,5 +1,5 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-from ...utils.config import BaseConfig
+from ..utils.config import BaseConfig
 
 # Default configuration for ProgressiveGANTrainer
 _C = BaseConfig()
@@ -23,6 +23,9 @@ _C.dimG = 64
 
 # Dimension of the discrimator
 _C.dimD = 64
+
+# Image dimension
+_C.imageSize = 64
 
 # Learning rate for optimizers
 # _C.learningRate = 0.0002
