@@ -10,7 +10,7 @@ class GNet(nn.Module):
         # self.ngpu = ngpu
         self.main = nn.Sequential(
             # input is Z, going into a convolution
-            nn.ConvTranspose2d(self.dimLatentVector, self.config.dimG * 8, 4, 1, 0, bias=False),
+            nn.ConvTranspose2d(self.config.dimLatentVector, self.config.dimG * 8, 4, 1, 0, bias=False),
             nn.BatchNorm2d(self.config.dimG * 8),
             nn.ReLU(True),
             # state size. (ngf*8) x 4 x 4
@@ -82,7 +82,9 @@ def getGNet(device):
     netG.apply(weights_init)
 
     # Print the models
-    print(netG)
+    # print(netG)
+
+    return netG
 
 def getDNet(device):
     netD = DNet().to(device)
@@ -92,4 +94,6 @@ def getDNet(device):
     netD.apply(weights_init)
 
     # Print the models
-    print(netD)
+    # print(netD)
+
+    return netD

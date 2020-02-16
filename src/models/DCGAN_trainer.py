@@ -4,18 +4,18 @@ from torch import optim
 from .DCGAN_config import _C
 import torchvision.utils as vutils
 from .DCGAN_nets import getGNet, getDNet
-from ..datasets.celeba_dataset import get_image_dataset
+from datasets.celeba_dataset import get_image_dataset
 
 
-class DCGANTrainer():
-    def __init__(self, num_epochs=100):
+class DCGANTrainer:
+    def __init__(self, data_root, num_epochs=100):
         self.config = _C
         self.num_epochs = num_epochs
         self.device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
 
         self.netG = getGNet(self.device)
         self.netD = getDNet(self.device)
-        self.dataset = get_image_dataset('../../data')
+        self.dataset = get_image_dataset(data_root)
         self.dataloader = torch.utils.data.DataLoader(self.dataset,
                                                       batch_size=_C.miniBatchSize,
                                                       shuffle=True, num_workers=2)

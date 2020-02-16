@@ -1,6 +1,6 @@
 from torchvision import datasets
 from torchvision import transforms
-from ..models.DCGAN_config import _C
+from models.DCGAN_config import _C
 
 
 def get_image_dataset(dataroot):
