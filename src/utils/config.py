@@ -1,5 +1,8 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-class BaseConfig():
+import pprint
+
+
+class BaseConfig:
     r"""
     An empty class used for configuration members
     """
@@ -110,3 +113,12 @@ def getDictFromConfig(obj, referenceConfig, printDefault=True):
             output[member] = value
 
     return output
+
+
+def printConfig(obj):
+    print('Config:')
+    output = {}
+    for member, value in vars(obj).items():
+        output[member] = getattr(obj, member)
+
+    pprint.pprint(output)

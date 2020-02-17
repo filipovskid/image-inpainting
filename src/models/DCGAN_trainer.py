@@ -5,13 +5,19 @@ from .DCGAN_config import _C
 import torchvision.utils as vutils
 from .DCGAN_nets import getGNet, getDNet
 from datasets.celeba_dataset import get_image_dataset
+from utils.config import printConfig
+
+from pathlib import Path
 
 
 class DCGANTrainer:
-    def __init__(self, data_root, checkpoints_path, num_epochs=100):
+    def __init__(self, data_root, checkpoints_path=None, save_epoch=10, num_epochs=None):
         self.config = _C
-        self.checkpoints_path = checkpoints_path
-        self.num_epochs = num_epochs
+        self.checkpoints_path = Path(checkpoints_path)
+        self.save_epoch = save_epoch
+        if num_epochs:
+            self.config.nEpoch = num_epochs
+        self.num_epochs = self.config.nEpoch
         self.device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
 
         self.netG = getGNet(self.device)
@@ -31,11 +37,13 @@ class DCGANTrainer:
         self.img_list = []
         self.G_losses = []
         self.D_losses = []
-        self.start_epoch = 0
+        self.start_epoch = 1
 
         # Create batch of latent vectors that we will use to visualize
         #  the progression of the generator
         self.fixed_noise = torch.randn(64, self.config.dimLatentVector, 1, 1, device=self.device)
+
+        printConfig(self.config)
 
     def train(self):
         # Initialize BCELoss function
@@ -50,7 +58,7 @@ class DCGANTrainer:
 
         print("Starting Training Loop...")
         # For each epoch
-        for epoch in range(self.start_epoch, self.num_epochs):
+        for epoch in range(self.start_epoch, self.num_epochs + 1):
             # For each batch in the dataloader
             for i, data in enumerate(self.dataloader, 0):
 
@@ -115,12 +123,17 @@ class DCGANTrainer:
                 self.D_losses.append(errD.item())
 
                 # Check how the generator is doing by saving G's output on fixed_noise
-                if (iters % 500 == 0) or ((epoch == self.num_epochs - 1) and (i == len(self.dataloader) - 1)):
+                if (iters % 500 == 0) or ((epoch == self.num_epochs) and (i == len(self.dataloader) - 1)):
                     with torch.no_grad():
                         fake = self.netG(self.fixed_noise).detach().cpu()
                     self.img_list.append(vutils.make_grid(fake, padding=2, normalize=True))
 
                 iters += 1
+
+            if self.checkpoints_path and ((epoch % self.save_epoch == 0) or (epoch == self.num_epochs)):
+                self.save_checkpoint(epoch)
+
+        return self.G_losses, self.D_losses, self.img_list
 
     def save_checkpoint(self, epoch):
         checkpoint = {
@@ -139,7 +152,10 @@ class DCGANTrainer:
             'fixed_noise': self.fixed_noise
         }
 
-        torch.save(checkpoint, self.checkpoints_path)
+        checkpoint_name = f'checkpoint_{epoch}.tar'
+        checkpoint_path = self.checkpoints_path.joinpath(checkpoint_name)
+
+        torch.save(checkpoint, str(checkpoint_path))
 
         print(f'[+] Checkpoint saved! Epoch {epoch}.')
 
@@ -152,10 +168,10 @@ class DCGANTrainer:
         self.netD.load_state_dict(checkpoint['D']['model_state_dict'])
         self.optimizerD.load_state_dict(checkpoint['D']['optim_state_dict'])
 
-        self.start_epoch = checkpoint['epoch']
+        self.start_epoch = checkpoint['epoch'] + 1
         self.G_losses = checkpoint['G_losses']
         self.D_losses = checkpoint['D_losses']
         self.img_list = checkpoint['img_list']
         self.fixed_noise = checkpoint['fixed_noise']
 
-        print(f'[+] Checkpoint loaded! Epoch {self.start_epoch}.')
+        print(f'[+] Checkpoint loaded! Epoch {checkpoint["epoch"]}.')
