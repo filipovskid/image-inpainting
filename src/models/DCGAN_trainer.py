@@ -11,21 +11,13 @@ from pathlib import Path
 
 
 class DCGANTrainer:
-    def __init__(self, data_root, checkpoints_path=None, save_epoch=10, num_epochs=None):
+    def __init__(self):
         self.config = _C
-        self.checkpoints_path = Path(checkpoints_path)
-        self.save_epoch = save_epoch
-        if num_epochs:
-            self.config.nEpoch = num_epochs
         self.num_epochs = self.config.nEpoch
         self.device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
 
         self.netG = getGNet(self.device)
         self.netD = getDNet(self.device)
-        self.dataset = get_image_dataset(data_root)
-        self.dataloader = torch.utils.data.DataLoader(self.dataset,
-                                                      batch_size=_C.miniBatchSize,
-                                                      shuffle=True, num_workers=2)
 
         # Setup Adam optimizers for both G and D
         self.optimizerD = optim.Adam(self.netD.parameters(), lr=self.config.baseLearningRate,
@@ -45,7 +37,16 @@ class DCGANTrainer:
 
         printConfig(self.config)
 
-    def train(self):
+    def train(self, data_root, checkpoints_dir=None, save_epoch=10, num_epochs=None):
+        # Config
+        if num_epochs:
+            self.config.nEpoch = num_epochs
+
+        # Create a dataset and dataloader
+        self.dataset = get_image_dataset(data_root, self.config)
+        self.dataloader = torch.utils.data.DataLoader(self.dataset,
+                                                      batch_size=self.config.miniBatchSize,
+                                                      shuffle=True, num_workers=2)
         # Initialize BCELoss function
         criterion = nn.BCELoss()
 
@@ -57,6 +58,7 @@ class DCGANTrainer:
         iters = 0
 
         print("Starting Training Loop...")
+        self.train_mode()
         # For each epoch
         for epoch in range(self.start_epoch, self.num_epochs + 1):
             # For each batch in the dataloader
@@ -130,12 +132,12 @@ class DCGANTrainer:
 
                 iters += 1
 
-            if self.checkpoints_path and ((epoch % self.save_epoch == 0) or (epoch == self.num_epochs)):
-                self.save_checkpoint(epoch)
+            if checkpoints_dir and ((epoch % save_epoch == 0) or (epoch == self.num_epochs)):
+                self.save_checkpoint(epoch, checkpoints_dir)
 
         return self.G_losses, self.D_losses, self.img_list
 
-    def save_checkpoint(self, epoch):
+    def save_checkpoint(self, epoch, checkpoints_dir):
         checkpoint = {
             'G': {
                 'model_state_dict': self.netG.state_dict(),
@@ -152,11 +154,11 @@ class DCGANTrainer:
             'fixed_noise': self.fixed_noise
         }
 
+        checkpoints_path = Path(checkpoints_dir)
         checkpoint_name = f'checkpoint_{epoch}.tar'
-        checkpoint_path = self.checkpoints_path.joinpath(checkpoint_name)
+        checkpoint_path = checkpoints_path.joinpath(checkpoint_name)
 
         torch.save(checkpoint, str(checkpoint_path))
-
         print(f'[+] Checkpoint saved! Epoch {epoch}.')
 
     def load_checkpoint(self, checkpoint_path):
@@ -175,3 +177,20 @@ class DCGANTrainer:
         self.fixed_noise = checkpoint['fixed_noise']
 
         print(f'[+] Checkpoint loaded! Epoch {checkpoint["epoch"]}.')
+
+    def train_mode(self):
+        self.netG.train()
+        self.netD.train()
+
+    def eval_mode(self):
+        self.netG.eval()
+        self.netD.eval()
+
+    def get_config(self):
+        return self.config
+
+    def getGNet(self):
+        return self.netG
+
+    def getDNet(self):
+        return self.netD

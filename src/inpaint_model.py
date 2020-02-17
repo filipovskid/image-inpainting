@@ -3,22 +3,15 @@ from torch import nn
 from torch import optim
 import numpy as np
 from scipy.signal import convolve2d
-from models.DCGAN import DCGAN
+from models.DCGAN_trainer import DCGANTrainer
 import torch.utils.model_zoo as model_zoo
 from PIL import Image
 
 
 class InpaintModel:
-    def __init__(self):
-        # use_gpu = True if torch.cuda.is_available() else False
-        # self.model = torch.hub.load('facebookresearch/pytorch_GAN_zoo:hub', 'DCGAN', pretrained=True, useGPU=use_gpu)
-        self.model = DCGAN(useGPU=False,
-                      storeAVG=True) #,
-                      #**kwargs['config'])
-
-        checkpoint = 'https://dl.fbaipublicfiles.com/gan_zoo/DCGAN_fashionGen-1d67302.pth'
-        state_dict = model_zoo.load_url(checkpoint, map_location='cpu')
-        self.model.load_state_dict(state_dict)
+    def __init__(self, dcgan_checkpoint, model):
+        self.config = model.get_config()
+        self.model = model
 
         self.G = self.model.getNetG()
         self.D = self.model.getNetD()

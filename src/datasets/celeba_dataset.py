@@ -1,15 +1,18 @@
 from torchvision import datasets
 from torchvision import transforms
-from models.DCGAN_config import _C
 
 
-def get_image_dataset(dataroot):
+def get_image_dataset(dataroot, config):
     # Create the dataset
     dataset = datasets.ImageFolder(root=dataroot,
-                                   transform=transforms.Compose([
-                                   transforms.Resize(_C.imageSize),
-                                   transforms.CenterCrop(_C.imageSize),
-                                   transforms.ToTensor(),
-                                   transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-                                ]))
+                                   transform=create_transform(config))
     return dataset
+
+
+def create_transform(config):
+    return transforms.Compose([
+        transforms.Resize(config.imageSize),
+        transforms.CenterCrop(config.imageSize),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
