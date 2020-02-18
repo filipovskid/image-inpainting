@@ -33,12 +33,13 @@ class InpaintModel:
 
         return loss
 
-    def create_importance_weights(self, mask, w_size=7):
-        mask_2d = mask[0, :, :]
+    def create_importance_weights(mask, w_size):
+        mask_2d = mask[:, :, 0]
         kernel = np.ones((w_size, w_size), dtype=np.float32)
         kernel = kernel / np.sum(kernel)
 
-        importance_weights = mask_2d * convolve2d(mask_2d, kernel, mode='same')  # , boundary='symm')
+        importance_weights = convolve2d(mask_2d, kernel, mode='same')  # , boundary='symm')
+        importance_weights[mask_2d == 1] = 0
 
         return torch.from_numpy(np.repeat(importance_weights[np.newaxis, :, :], 3, axis=0))
 
