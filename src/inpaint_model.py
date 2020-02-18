@@ -20,6 +20,10 @@ class InpaintModel:
         self.l = 0.003
 
     def inpaint_loss(self, W, G_output, y):
+        W = W.to(self.device)
+        G_output = G_output.to(self.device)
+        y = y.to(self.device)
+
         context_loss = torch.sum(
             torch.flatten(
                 torch.abs(torch.mul(W, G_output) - torch.mul(W, y))
@@ -33,8 +37,8 @@ class InpaintModel:
 
         return loss
 
-    def create_importance_weights(mask, w_size):
-        mask_2d = mask[:, :, 0]
+    def create_importance_weights(self, mask, w_size=7):
+        mask_2d = mask[0, :, :]
         kernel = np.ones((w_size, w_size), dtype=np.float32)
         kernel = kernel / np.sum(kernel)
 
@@ -51,8 +55,8 @@ class InpaintModel:
             # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
 
-        image = resize_transform(masked_image).to(self.device)
-        mask = resize_transform(image_mask).to(self.device)
+        image = resize_transform(masked_image)  # .to(self.device)
+        mask = resize_transform(image_mask)  # .to(self.device)
 
         return image, mask
 
