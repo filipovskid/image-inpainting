@@ -189,8 +189,8 @@ class DCGANTrainer:
     def get_config(self):
         return self.config
 
-    def getGNet(self):
+    def getNetG(self):
         return self.netG
 
-    def getDNet(self):
+    def getNetD(self):
         return self.netD
