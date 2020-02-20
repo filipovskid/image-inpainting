@@ -5,7 +5,7 @@ import random
 class MaskGenerator:
     @staticmethod
     def random_rectangle(img):
-        mask = np.zeros(img.shape)
+        mask = np.ones(img.shape)
         h, w = img.shape[:2]
         img_area = w * h
         mask_area = 0
@@ -17,13 +17,13 @@ class MaskGenerator:
 
             mask_area = (x2 - x1) * (y2 - y1)
 
-        mask[x1:x2, y1:y2] = 1
+        mask[x1:x2, y1:y2] = 0
 
         return mask
 
     @staticmethod
     def centered_rectangle(img):
-        mask = np.zeros(img.shape)
+        mask = np.ones(img.shape)
         h, w = img.shape[:2]
         img_area = w * h
         mask_area = 0
@@ -42,7 +42,7 @@ class MaskGenerator:
 
             mask_area = (x2 - x1) * (y2 - y1)
 
-        mask[x1:x2, y1:y2, :] = 1
+        mask[x1:x2, y1:y2, :] = 0
         # mask[cx, cy] = 1
 
         return mask
@@ -50,10 +50,10 @@ class MaskGenerator:
     @staticmethod
     def random_noise(image, percent):
         row, col, ch = image.shape
-        mask = np.zeros((row, col, 3))
+        mask = np.ones((row, col, 3))
 
         unif = np.random.sample((row, col))
         unif = unif.reshape(row, col)
-        mask[unif > (1 - percent), :] = 1
+        mask[unif > (1 - percent), :] = 0
 
         return mask

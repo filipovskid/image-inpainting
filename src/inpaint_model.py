@@ -6,6 +6,7 @@ from scipy.signal import convolve2d
 from models.DCGAN_trainer import DCGANTrainer
 import torch.utils.model_zoo as model_zoo
 from torchvision import transforms
+import matplotlib.pyplot as plt
 from PIL import Image
 
 
@@ -20,10 +21,6 @@ class InpaintModel:
         self.l = 0.003
 
     def inpaint_loss(self, W, G_output, y):
-        W = W.to(self.device)
-        G_output = G_output.to(self.device)
-        y = y.to(self.device)
-
         context_loss = torch.sum(
             torch.flatten(
                 torch.abs(torch.mul(W, G_output) - torch.mul(W, y))
@@ -37,15 +34,15 @@ class InpaintModel:
 
         return loss
 
-    def create_importance_weights(self, mask, w_size=7):
-        mask_2d = mask[0, :, :]
+    def create_importance_weights(self, mask, w_size=20):
+        mask_2d = mask[:, :, 0]
         kernel = np.ones((w_size, w_size), dtype=np.float32)
         kernel = kernel / np.sum(kernel)
 
-        importance_weights = convolve2d(mask_2d, kernel, mode='same')  # , boundary='symm')
-        importance_weights[mask_2d == 1] = 0
+        importance_weights = mask_2d * convolve2d(1 - mask_2d, kernel, mode='same')  # , boundary='symm')
+        # importance_weights[mask_2d == 1] = 0
 
-        return torch.from_numpy(np.repeat(importance_weights[np.newaxis, :, :], 3, axis=0))
+        return torch.from_numpy(np.repeat(importance_weights[np.newaxis, :, :], 3, axis=0)).to(self.device)
 
     def preprocess(self, masked_image, image_mask):
         resize_transform = transforms.Compose([
@@ -55,14 +52,14 @@ class InpaintModel:
             # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
 
-        image = resize_transform(masked_image)  # .to(self.device)
-        mask = resize_transform(image_mask)  # .to(self.device)
+        image = resize_transform(masked_image).to(self.device)
+        # mask = resize_transform(image_mask).to(self.device)
 
-        return image, mask
+        return image, image_mask
 
     def inpaint(self, masked_image, image_mask):
         image, mask = self.preprocess(masked_image, image_mask)
-        W = self.create_importance_weights(mask.numpy())
+        W = self.create_importance_weights(mask)
 
         z = nn.Parameter(torch.randn(1, self.config.dimLatentVector, 1, 1, device=self.device), requires_grad=True)
         optimizer = optim.Adam([z])

@@ -150,8 +150,8 @@ class DCGANTrainer:
             'epoch': epoch,
             'G_losses': self.G_losses,
             'D_losses': self.D_losses,
-            'img_list': self.img_list,
-            'fixed_noise': self.fixed_noise
+            # 'img_list': self.img_list,
+            # 'fixed_noise': self.fixed_noise
         }
 
         checkpoints_path = Path(checkpoints_dir)
@@ -173,8 +173,8 @@ class DCGANTrainer:
         self.start_epoch = checkpoint['epoch'] + 1
         self.G_losses = checkpoint['G_losses']
         self.D_losses = checkpoint['D_losses']
-        self.img_list = checkpoint['img_list']
-        self.fixed_noise = checkpoint['fixed_noise']
+        # self.img_list = checkpoint['img_list']
+        # self.fixed_noise = checkpoint['fixed_noise']
 
         print(f'[+] Checkpoint loaded! Epoch {checkpoint["epoch"]}.')
 
