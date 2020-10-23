@@ -9,6 +9,7 @@ import torch.utils.model_zoo as model_zoo
 from torchvision import transforms
 import matplotlib.pyplot as plt
 from PIL import Image
+from utils.helpers import NormalizeInverse
 
 
 class InpaintModel:
@@ -73,7 +74,9 @@ class InpaintModel:
     def postprocess(self, generated_output, masked_image, image_mask):
         inpainted_image = (image_mask * masked_image) + ((1 - image_mask) * generated_output)
 
-        generated_img = generated_output.squeeze(dim=0).permute(1, 2, 0).cpu().numpy()
+        inverse_normalization = NormalizeInverse((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        generated_img = inverse_normalization(generated_output.squeeze(dim=0).permute(1, 2, 0)).cpu().numpy()
+        inpainted_image = inverse_normalization(inpainted_image)
         mask = image_mask.permute(1, 2, 0).cpu().numpy()
 
         return generated_img, inpainted_image, mask
