@@ -28,6 +28,9 @@ class InpaintModel:
         self.G.load_state_dict(checkpoint['G']['model_state_dict'])
         self.D.load_state_dict(checkpoint['D']['model_state_dict'])
 
+        self.G.to(self.device)
+        self.D.to(self.device)
+
         print(f'[+] Model loaded! Epoch {checkpoint["epoch"]}.')
 
     def inpaint_loss(self, W, G_output, y):
@@ -45,7 +48,7 @@ class InpaintModel:
         return loss
 
     def create_importance_weights(self, mask, w_size=20):
-        mask_2d = mask[0, :, :]
+        mask_2d = mask[0, :, :].cpu().numpy()
         kernel = np.ones((w_size, w_size), dtype=np.float32)
         kernel = kernel / np.sum(kernel)
 
@@ -68,12 +71,12 @@ class InpaintModel:
         return image, mask
 
     def postprocess(self, generated_output, masked_image, image_mask):
-        generated_img = generated_output.permute(1, 2, 0).numpy()
-        mask = image_mask.permute(1, 2, 0).numpy()
+        inpainted_image = (image_mask * masked_image) + ((1 - image_mask) * generated_output)
 
-        inpainted_image = (mask * masked_image) + ((1 - mask) * generated_img)
+        generated_img = generated_output.squeeze(dim=0).permute(1, 2, 0).cpu().numpy()
+        mask = image_mask.permute(1, 2, 0).cpu().numpy()
 
-        return inpainted_image, generated_img, mask
+        return generated_img, inpainted_image, mask
 
     def inpaint(self, masked_image, image_mask):
         image, mask = self.preprocess(masked_image, image_mask)
@@ -90,6 +93,6 @@ class InpaintModel:
             optimizer.step()
 
         G_z = self.G(z)
+        G_z_image, inpainted_image, mask_image = self.postprocess(G_z.detach(), image, mask)
 
-        return self.postprocess(generated_output=G_z, masked_image = masked_image, image_mask=mask), \
-               W.permute(1, 2, 0).numpy()
+        return G_z_image, inpainted_image, mask_image, W.permute(1, 2, 0).cpu().numpy()
