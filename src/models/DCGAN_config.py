@@ -10,7 +10,7 @@ _C = BaseConfig()
 _C.depth = 3
 
 # Mini batch size
-_C.miniBatchSize = 64
+_C.miniBatchSize = 256  # 64
 
 # Dimension of the latent vector
 _C.dimLatentVector = 100

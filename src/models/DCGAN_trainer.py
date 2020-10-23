@@ -72,7 +72,7 @@ class DCGANTrainer:
                 # Format batch
                 real_cpu = data[0].to(self.device)
                 b_size = real_cpu.size(0)
-                label = torch.full((b_size,), real_label, device=self.device)
+                label = torch.full((b_size,), real_label, dtype=torch.float, device=self.device)
                 # Forward pass real batch through D
                 output = self.netD(real_cpu).view(-1)
                 # Calculate loss on all-real batch
