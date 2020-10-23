@@ -3,7 +3,8 @@ from torch import nn
 from torch import optim
 import numpy as np
 from scipy.signal import convolve2d
-from models.DCGAN_trainer import DCGANTrainer
+# from models.DCGAN_trainer import DCGANTrainer
+from models.DCGAN_nets import GNet, DNet
 import torch.utils.model_zoo as model_zoo
 from torchvision import transforms
 import matplotlib.pyplot as plt
@@ -11,14 +12,23 @@ from PIL import Image
 
 
 class InpaintModel:
-    def __init__(self, model):
-        self.config = model.get_config()
-        self.model = model
+    def __init__(self, model_filename, config):
+        self.config = config
         self.device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
 
-        self.G = self.model.getNetG()
-        self.D = self.model.getNetD()
+        self.G = GNet()
+        self.D = DNet()
+        self.load_model(model_filename)
+
         self.l = 0.003
+
+    def load_model(self, model_filename):
+        checkpoint = torch.load(model_filename)
+
+        self.G.load_state_dict(checkpoint['G']['model_state_dict'])
+        self.D.load_state_dict(checkpoint['D']['model_state_dict'])
+
+        print(f'[+] Model loaded! Epoch {checkpoint["epoch"]}.')
 
     def inpaint_loss(self, W, G_output, y):
         context_loss = torch.sum(
@@ -35,12 +45,11 @@ class InpaintModel:
         return loss
 
     def create_importance_weights(self, mask, w_size=20):
-        mask_2d = mask[:, :, 0]
+        mask_2d = mask[0, :, :]
         kernel = np.ones((w_size, w_size), dtype=np.float32)
         kernel = kernel / np.sum(kernel)
 
-        importance_weights = mask_2d * convolve2d(1 - mask_2d, kernel, mode='same')  # , boundary='symm')
-        # importance_weights[mask_2d == 1] = 0
+        importance_weights = mask_2d * convolve2d(1 - mask_2d, kernel, mode='same', boundary='symm')
 
         return torch.from_numpy(np.repeat(importance_weights[np.newaxis, :, :], 3, axis=0)).to(self.device)
 
@@ -51,17 +60,26 @@ class InpaintModel:
             transforms.ToTensor(),
             # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
+        normalize_transform = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 
-        image = resize_transform(masked_image).to(self.device)
-        # mask = resize_transform(image_mask).to(self.device)
+        image = normalize_transform(resize_transform(masked_image)).to(self.device)
+        mask = resize_transform(image_mask).to(self.device)
 
-        return image, image_mask
+        return image, mask
+
+    def postprocess(self, generated_output, masked_image, image_mask):
+        generated_img = generated_output.permute(1, 2, 0).numpy()
+        mask = image_mask.permute(1, 2, 0).numpy()
+
+        inpainted_image = (mask * masked_image) + ((1 - mask) * generated_img)
+
+        return inpainted_image, generated_img, mask
 
     def inpaint(self, masked_image, image_mask):
         image, mask = self.preprocess(masked_image, image_mask)
         W = self.create_importance_weights(mask)
 
-        z = nn.Parameter(torch.randn(1, self.config.dimLatentVector, 1, 1, device=self.device), requires_grad=True)
+        z = nn.Parameter(torch.randn((1, self.config.dimLatentVector, 1, 1), device=self.device), requires_grad=True)
         optimizer = optim.Adam([z])
 
         for i in range(1500):
@@ -71,4 +89,7 @@ class InpaintModel:
             loss.backward()
             optimizer.step()
 
-        return self.G(z)
+        G_z = self.G(z)
+
+        return self.postprocess(generated_output=G_z, masked_image = masked_image, image_mask=mask), \
+               W.permute(1, 2, 0).numpy()

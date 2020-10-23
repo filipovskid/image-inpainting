@@ -4,7 +4,7 @@ from torch import optim
 from .DCGAN_config import _C
 import torchvision.utils as vutils
 from .DCGAN_nets import getGNet, getDNet
-from datasets.celeba_dataset import get_image_dataset
+from datasets.datasets import get_image_dataset
 from utils.config import printConfig
 
 from pathlib import Path
