@@ -16,3 +16,11 @@ class NormalizeInverse(torchvision.transforms.Normalize):
 
     def __call__(self, tensor):
         return super().__call__(tensor.clone())
+
+
+def binarize_mask(mask):
+    bmask = torch.tensor(mask)
+    bmask[mask > 0] = 1
+    bmask[mask <= 0] = 0
+
+    return bmask

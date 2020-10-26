@@ -10,6 +10,7 @@ from torchvision import transforms
 import matplotlib.pyplot as plt
 from PIL import Image
 from utils.helpers import NormalizeInverse
+from utils.helpers import binarize_mask
 
 
 class InpaintModel:
@@ -48,7 +49,7 @@ class InpaintModel:
 
         return loss
 
-    def create_importance_weights(self, mask, w_size=20):
+    def create_importance_weights(self, mask, w_size=7):
         mask_2d = mask[0, :, :].cpu().numpy()
         kernel = np.ones((w_size, w_size), dtype=np.float32)
         kernel = kernel / np.sum(kernel)
@@ -62,12 +63,12 @@ class InpaintModel:
             transforms.Resize(self.config.imageSize),
             transforms.CenterCrop(self.config.imageSize),
             transforms.ToTensor(),
-            # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
         normalize_transform = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 
         image = normalize_transform(resize_transform(masked_image)).to(self.device)
         mask = resize_transform(image_mask).to(self.device)
+        mask = binarize_mask(mask)
 
         return image, mask
 
@@ -75,11 +76,11 @@ class InpaintModel:
         inpainted_image = (image_mask * masked_image) + ((1 - image_mask) * generated_output)
 
         inverse_normalization = NormalizeInverse((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-        generated_img = inverse_normalization(generated_output.squeeze(dim=0).permute(1, 2, 0)).cpu().numpy()
-        inpainted_image = inverse_normalization(inpainted_image)
+        generated_image = inverse_normalization(generated_output.squeeze(dim=0)).permute(1, 2, 0).cpu().numpy()
+        inpainted_image = inverse_normalization(inpainted_image.squeeze(dim=0)).permute(1, 2, 0).cpu().numpy()
         mask = image_mask.permute(1, 2, 0).cpu().numpy()
 
-        return generated_img, inpainted_image, mask
+        return generated_image, inpainted_image, mask
 
     def inpaint(self, masked_image, image_mask):
         image, mask = self.preprocess(masked_image, image_mask)
