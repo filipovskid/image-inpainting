@@ -1,4 +1,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+#
+# Source: https://github.com/facebookresearch/pytorch_GAN_zoo
+
 from utils.config import BaseConfig
 
 # Default configuration for ProgressiveGANTrainer

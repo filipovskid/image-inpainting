@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from utils.helpers import NormalizeInverse
 from utils.helpers import binarize_mask
+from utils import poissonblending
 
 
 class InpaintModel:
@@ -78,7 +79,10 @@ class InpaintModel:
         inverse_normalization = NormalizeInverse((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         generated_image = inverse_normalization(generated_output.squeeze(dim=0)).permute(1, 2, 0).cpu().numpy()
         inpainted_image = inverse_normalization(inpainted_image.squeeze(dim=0)).permute(1, 2, 0).cpu().numpy()
+        masked_image = masked_image.permute(1, 2, 0).cpu().numpy()
         mask = image_mask.permute(1, 2, 0).cpu().numpy()
+
+        inpainted_image = poissonblending.blend(inpainted_image, masked_image, mask)
 
         return generated_image, inpainted_image, mask
 
