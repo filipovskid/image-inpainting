@@ -74,15 +74,17 @@ class InpaintModel:
         return image, mask
 
     def postprocess(self, generated_output, masked_image, image_mask):
-        inpainted_image = (image_mask * masked_image) + ((1 - image_mask) * generated_output)
-
         inverse_normalization = NormalizeInverse((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+
+        # Without blending
+        # inpainted_image = (image_mask * masked_image) + ((1 - image_mask) * generated_output)
+        # inpainted_image = inverse_normalization(inpainted_image.squeeze(dim=0)).permute(1, 2, 0).cpu().numpy()
+
         generated_image = inverse_normalization(generated_output.squeeze(dim=0)).permute(1, 2, 0).cpu().numpy()
-        inpainted_image = inverse_normalization(inpainted_image.squeeze(dim=0)).permute(1, 2, 0).cpu().numpy()
-        masked_image = masked_image.permute(1, 2, 0).cpu().numpy()
+        masked_image = inverse_normalization(masked_image).permute(1, 2, 0).cpu().numpy()
         mask = image_mask.permute(1, 2, 0).cpu().numpy()
 
-        inpainted_image = poissonblending.blend(inpainted_image, masked_image, mask)
+        inpainted_image = poissonblending.blend(masked_image, generated_image, 1 - mask)
 
         return generated_image, inpainted_image, mask
 
