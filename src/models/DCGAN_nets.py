@@ -10,29 +10,34 @@ class GNet(nn.Module):
         # self.ngpu = ngpu
         self.main = nn.Sequential(
             # input is Z, going into a convolution
-            nn.ConvTranspose2d(self.config.dimLatentVector, self.config.dimG * 8, 4, 1, 0, bias=False),
-            nn.BatchNorm2d(self.config.dimG * 8),
+            nn.ConvTranspose2d(in_channels=self.config.dimLatentVector, out_channels=self.config.dimG * 8,
+                               kernel_size=4, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(num_features=self.config.dimG * 8),
             nn.ReLU(True),
             # state size. (ngf*8) x 4 x 4
-            nn.ConvTranspose2d(self.config.dimG * 8, self.config.dimG * 4, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(self.config.dimG * 4),
+            nn.ConvTranspose2d(in_channels=self.config.dimG * 8, out_channels=self.config.dimG * 4,
+                               kernel_size=4, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(num_features=self.config.dimG * 4),
             nn.ReLU(True),
             # state size. (ngf*4) x 8 x 8
-            nn.ConvTranspose2d(self.config.dimG * 4, self.config.dimG * 2, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(self.config.dimG * 2),
+            nn.ConvTranspose2d(in_channels=self.config.dimG * 4, out_channels=self.config.dimG * 2,
+                               kernel_size=4, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(num_features=self.config.dimG * 2),
             nn.ReLU(True),
             # state size. (ngf*2) x 16 x 16
-            nn.ConvTranspose2d( self.config.dimG * 2, self.config.dimG, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(self.config.dimG),
+            nn.ConvTranspose2d(in_channels=self.config.dimG * 2, out_channels=self.config.dimG,
+                               kernel_size=4, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(num_features=self.config.dimG),
             nn.ReLU(True),
             # state size. (ngf) x 32 x 32
-            nn.ConvTranspose2d(self.config.dimG, self.config.dimOutput, 4, 2, 1, bias=False),
+            nn.ConvTranspose2d(in_channels=self.config.dimG, out_channels=self.config.dimOutput,
+                               kernel_size=4, stride=2, padding=1, bias=False),
             nn.Tanh()
             # state size. (nc) x 64 x 64
         )
 
-    def forward(self, input):
-        return self.main(input)
+    def forward(self, nn_input):
+        return self.main(nn_input)
 
 
 class DNet(nn.Module):
@@ -43,27 +48,32 @@ class DNet(nn.Module):
         # self.ngpu = ngpu
         self.main = nn.Sequential(
             # input is (nc) x 64 x 64
-            nn.Conv2d(self.config.dimOutput, self.config.dimD, 4, 2, 1, bias=False),
+            nn.Conv2d(in_channels=self.config.dimOutput, out_channels=self.config.dimD, kernel_size=4, stride=2,
+                      padding=1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf) x 32 x 32
-            nn.Conv2d(self.config.dimD, self.config.dimD * 2, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(self.config.dimD * 2),
+            nn.Conv2d(in_channels=self.config.dimD, out_channels=self.config.dimD * 2, kernel_size=4, stride=2,
+                      padding=1, bias=False),
+            nn.BatchNorm2d(num_features=self.config.dimD * 2),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*2) x 16 x 16
-            nn.Conv2d(self.config.dimD * 2, self.config.dimD * 4, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(self.config.dimD * 4),
+            nn.Conv2d(in_channels=self.config.dimD * 2, out_channels=self.config.dimD * 4, kernel_size=4, stride=2,
+                      padding=1, bias=False),
+            nn.BatchNorm2d(num_features=self.config.dimD * 4),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*4) x 8 x 8
-            nn.Conv2d(self.config.dimD * 4, self.config.dimD * 8, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(self.config.dimD * 8),
+            nn.Conv2d(in_channels=self.config.dimD * 4, out_channels=self.config.dimD * 8, kernel_size=4, stride=2,
+                      padding=1, bias=False),
+            nn.BatchNorm2d(num_features=self.config.dimD * 8),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*8) x 4 x 4
-            nn.Conv2d(self.config.dimD * 8, 1, 4, 1, 0, bias=False),
+            nn.Conv2d(in_channels=self.config.dimD * 8, out_channels=1, kernel_size=4, stride=1, padding=0, bias=False),
             nn.Sigmoid()
         )
 
-    def forward(self, input):
-        return self.main(input)
+    def forward(self, nn_input):
+        return self.main(nn_input)
+
 
 def weights_init(m):
     classname = m.__class__.__name__
@@ -72,6 +82,7 @@ def weights_init(m):
     elif classname.find('BatchNorm') != -1:
         nn.init.normal_(m.weight.data, 1.0, 0.02)
         nn.init.constant_(m.bias.data, 0)
+
 
 def getGNet(device):
     # Create the generator
@@ -85,6 +96,7 @@ def getGNet(device):
     # print(netG)
 
     return netG
+
 
 def getDNet(device):
     netD = DNet().to(device)
