@@ -580,13 +580,29 @@ class Discriminator(nn.Module):
         return out
 
 
+from collections import OrderedDict
+
+
 def load_model(model_filename, device):
+    def fix_D_weights(weights):
+        key_filter = lambda key: key.startswith('from_rgb') and key.endswith(('conv.bias', 'conv.weight_orig'))
+        key_mapper = lambda key_parts: '.'.join(key_parts[0:2] + key_parts[3:])
+
+        new_weights = OrderedDict()
+        for k, v in weights.items():
+            if key_filter(k):
+                new_weights[key_mapper(k)] = v
+            else:
+                new_weights[k] = v
+
+        return new_weights
+
     checkpoint = torch.load(model_filename)
     G = StyledGenerator(512).to(device)
     D = Discriminator().to(device)
 
     G.load_state_dict(checkpoint['generator'])
-    D.load_state_dict(checkpoint['discriminator'])
+    D.load_state_dict(fix_D_weights(checkpoint['discriminator']))
 
     return G, D
 
