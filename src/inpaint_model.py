@@ -4,7 +4,10 @@ from torch import optim
 import numpy as np
 from scipy.signal import convolve2d
 # from models.DCGAN_trainer import DCGANTrainer
-from models.DCGAN_nets import GNet, DNet
+from models.DCGAN.DCGAN_nets import GNet, DNet
+from models.DCGAN.DCGAN_nets import load_model as load_dcgan
+from models.styleGAN.model import load_model as load_stylegan
+from models.styleGAN.model import get_mean_style
 import torch.utils.model_zoo as model_zoo
 from torchvision import transforms
 import matplotlib.pyplot as plt
@@ -12,29 +15,28 @@ from PIL import Image
 from utils.helpers import NormalizeInverse
 from utils.helpers import binarize_mask
 from utils import poissonblending
+import math
 
 
 class InpaintModel:
-    def __init__(self, model_filename, config):
+    def __init__(self, model_filename, config, gan_type):
         self.config = config
+        self.gan_type = gan_type
         self.device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
-
-        self.G = GNet()
-        self.D = DNet()
-        self.load_model(model_filename)
-
         self.l = 0.003
 
+        self.G, self.D = self.load_model(model_filename)
+
+        # StyleGAN
+        if self.gan_type == 'stylegan':
+            self.mean_style = get_mean_style(self.G, self.device)
+            self.step = int(math.log(self.config.imageSize, 2)) - 2
+
     def load_model(self, model_filename):
-        checkpoint = torch.load(model_filename)
+        if self.gan_type == 'stylegan':
+            return load_stylegan(model_filename, device=self.device)
 
-        self.G.load_state_dict(checkpoint['G']['model_state_dict'])
-        self.D.load_state_dict(checkpoint['D']['model_state_dict'])
-
-        self.G.to(self.device)
-        self.D.to(self.device)
-
-        print(f'[+] Model loaded! Epoch {checkpoint["epoch"]}.')
+        return load_dcgan(model_filename, device=self.device)
 
     def inpaint_loss(self, W, G_output, y):
         context_loss = torch.sum(
@@ -88,16 +90,35 @@ class InpaintModel:
 
         return generated_image, inpainted_image, mask
 
+    def generator_sample(self, z):
+        if self.gan_type == 'stylegan':
+            return self.G(
+                z,
+                step=self.step,
+                alpha=1,
+                mean_style=self.mean_style,
+                style_weight=0.7,)
+
+        return self.G(z)
+
     def inpaint(self, masked_image, image_mask):
         image, mask = self.preprocess(masked_image, image_mask)
         W = self.create_importance_weights(mask)
+
+        # if self.gan_type == 'stylegan':
+        #     z = nn.Parameter(torch.randn((1, self.config.dimLatentVector), device=self.device),
+        #                      requires_grad=True)
+        # else:
+        #     z = nn.Parameter(torch.randn((1, self.config.dimLatentVector, 1, 1), device=self.device),
+        #                      requires_grad=True)
 
         z = nn.Parameter(torch.randn((1, self.config.dimLatentVector, 1, 1), device=self.device), requires_grad=True)
         optimizer = optim.Adam([z])
 
         for i in range(1500):
             optimizer.zero_grad()
-            G_output = self.G(z)
+            # G_output = self.G(z)
+            G_output = self.generator_sample(z)
             loss = self.inpaint_loss(W, G_output, image)
             loss.backward()
             optimizer.step()

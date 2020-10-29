@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 from .DCGAN_config import _C
 
@@ -109,3 +110,16 @@ def getDNet(device):
     # print(netD)
 
     return netD
+
+
+def load_model(model_filename, device):
+    checkpoint = torch.load(model_filename)
+    G = GNet().to(device)
+    D = DNet().to(device)
+
+    G.load_state_dict(checkpoint['G']['model_state_dict'])
+    D.load_state_dict(checkpoint['D']['model_state_dict'])
+
+    print(f'[+] DCGAN model loaded! Epoch {checkpoint["epoch"]}.')
+
+    return G, D
