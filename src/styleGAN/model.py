@@ -591,7 +591,7 @@ def load_model(model_filename, device):
         new_weights = OrderedDict()
         for k, v in weights.items():
             if key_filter(k):
-                new_weights[key_mapper(k)] = v
+                new_weights[key_mapper(k.split('.'))] = v
             else:
                 new_weights[k] = v
 
