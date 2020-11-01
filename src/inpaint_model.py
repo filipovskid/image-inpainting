@@ -8,6 +8,8 @@ from DCGAN.DCGAN_nets import GNet, DNet
 from DCGAN.DCGAN_nets import load_model as load_dcgan
 from styleGAN.model import load_model as load_stylegan
 from styleGAN.model import get_mean_style
+from inpaint_config import _dcgan_inpaint_config as _DIC
+from inpaint_config import _stylegan_inpaint_config as _SIC
 import torch.utils.model_zoo as model_zoo
 from torchvision import transforms
 import matplotlib.pyplot as plt
@@ -20,7 +22,7 @@ import math
 
 class InpaintModel:
     def __init__(self, model_filename, config, gan_type):
-        self.config = config
+        self.model_config = config
         self.gan_type = gan_type
         self.device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
         self.l = 0.003
@@ -29,8 +31,12 @@ class InpaintModel:
 
         # StyleGAN
         if self.gan_type == 'stylegan':
+            self.config = _SIC
             self.mean_style = get_mean_style(self.G, self.device)
-            self.step = int(math.log(self.config.imageSize, 2)) - 2
+            self.step = int(math.log(self.model_config.imageSize, 2)) - 2
+
+        if self.gan_type == 'dcgan':
+            self.config = _DIC
 
     def load_model(self, model_filename):
         if self.gan_type == 'stylegan':
@@ -43,9 +49,9 @@ class InpaintModel:
             return self.G(
                 z,
                 step=self.step,
-                alpha=1,
+                alpha=self.config.alpha,
                 mean_style=self.mean_style,
-                style_weight=0.7,)
+                style_weight=self.config.style_weight,)
 
         return self.G(z)
 
@@ -80,8 +86,8 @@ class InpaintModel:
 
     def preprocess(self, masked_image, image_mask):
         resize_transform = transforms.Compose([
-            transforms.Resize(self.config.imageSize),
-            transforms.CenterCrop(self.config.imageSize),
+            transforms.Resize(self.model_config.imageSize),
+            transforms.CenterCrop(self.model_config.imageSize),
             transforms.ToTensor(),
         ])
         normalize_transform = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
@@ -109,19 +115,19 @@ class InpaintModel:
 
     def inpaint(self, masked_image, image_mask):
         image, mask = self.preprocess(masked_image, image_mask)
-        W = self.create_importance_weights(mask) # , w_size=28)
+        W = self.create_importance_weights(mask, w_size=self.config.w_size)
 
         if self.gan_type == 'stylegan':
-            z = nn.Parameter(torch.randn((1, self.config.dimLatentVector), device=self.device),
+            z = nn.Parameter(torch.randn((1, self.model_config.dimLatentVector), device=self.device),
                              requires_grad=True)
         else:
-            z = nn.Parameter(torch.randn((1, self.config.dimLatentVector, 1, 1), device=self.device),
+            z = nn.Parameter(torch.randn((1, self.model_config.dimLatentVector, 1, 1), device=self.device),
                              requires_grad=True)
 
         # z = nn.Parameter(torch.randn((1, self.config.dimLatentVector, 1, 1), device=self.device), requires_grad=True)
         optimizer = optim.Adam([z])
 
-        for i in range(1500):
+        for i in range(self.config.iter):
             optimizer.zero_grad()
             # G_output = self.G(z)
             G_output = self.sample_generator(z)
