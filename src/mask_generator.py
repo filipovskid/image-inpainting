@@ -29,7 +29,7 @@ class MaskGenerator:
         mask_area = 0
         cx, cy = int(h / 2), int(w / 2)
         offset = 0
-        min_pix = 20
+        min_pix = round(min(h, w)/10)  # 20
 
         while not (0.1 <= (mask_area / img_area) <= 0.4):
             left = random.randrange(min_pix, int(w / 2))
