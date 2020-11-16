@@ -48,6 +48,30 @@ class MaskGenerator:
         return mask
 
     @staticmethod
+    def rectangle_mask(self, image, props):
+        img_size = image.shape[1]
+        mask = np.ones((img_size, img_size, image.shape[2]))
+
+        if props['mask_type'] == 'center':
+            scale = 0.25
+            low, upper = int(img_size * scale), int(img_size * (1.0 - scale))
+            mask[low:upper, low:upper, :] = 0.
+        elif props['mask_type'] == 'left':
+            scale = 0.1
+            left, right = int(img_size * scale), int(img_size * (1.0 - scale) * .5)
+            top, bottom = int(img_size * .25), int(img_size * (1.0 - .25))
+
+            mask[top:bottom, left:right, :] = 0.
+        elif props['mask_type'] == 'right':
+            scale = 0.1
+            left, right = int(img_size * (1.0 + scale) * .5), int(img_size * (1.0 - scale))
+            top, bottom = int(img_size * .25), int(img_size * (1.0 - .25))
+
+            mask[top:bottom, left:right, :] = 0.
+
+        return mask
+
+    @staticmethod
     def random_noise(image, percent):
         row, col, ch = image.shape
         mask = np.ones((row, col, 3))
