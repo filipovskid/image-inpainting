@@ -4,7 +4,12 @@ from torch import optim
 import numpy as np
 from scipy.signal import convolve2d
 # from models.DCGAN_trainer import DCGANTrainer
-from models.DCGAN_nets import GNet, DNet
+from DCGAN.DCGAN_nets import GNet, DNet
+from DCGAN.DCGAN_nets import load_model as load_dcgan
+from styleGAN.model import load_model as load_stylegan
+from styleGAN.model import get_mean_style
+from inpaint_config import _dcgan_inpaint_config as _DIC
+from inpaint_config import _stylegan_inpaint_config as _SIC
 import torch.utils.model_zoo as model_zoo
 from torchvision import transforms
 import matplotlib.pyplot as plt
@@ -12,29 +17,49 @@ from PIL import Image
 from utils.helpers import NormalizeInverse
 from utils.helpers import binarize_mask
 from utils import poissonblending
+import math
 
 
 class InpaintModel:
-    def __init__(self, model_filename, config):
-        self.config = config
+    def __init__(self, model_filename, config, gan_type):
+        self.model_config = config
+        self.gan_type = gan_type
         self.device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
-
-        self.G = GNet()
-        self.D = DNet()
-        self.load_model(model_filename)
-
         self.l = 0.003
 
+        self.G, self.D = self.load_model(model_filename)
+
+        # StyleGAN
+        if self.gan_type == 'stylegan':
+            self.config = _SIC
+            self.mean_style = get_mean_style(self.G, self.device)
+            self.step = int(math.log(self.model_config.imageSize, 2)) - 2
+
+        if self.gan_type == 'dcgan':
+            self.config = _DIC
+
     def load_model(self, model_filename):
-        checkpoint = torch.load(model_filename)
+        if self.gan_type == 'stylegan':
+            return load_stylegan(model_filename, device=self.device)
 
-        self.G.load_state_dict(checkpoint['G']['model_state_dict'])
-        self.D.load_state_dict(checkpoint['D']['model_state_dict'])
+        return load_dcgan(model_filename, device=self.device)
 
-        self.G.to(self.device)
-        self.D.to(self.device)
+    def sample_generator(self, z):
+        if self.gan_type == 'stylegan':
+            return self.G(
+                z,
+                step=self.step,
+                alpha=self.config.alpha,
+                mean_style=self.mean_style,
+                style_weight=self.config.style_weight,)
 
-        print(f'[+] Model loaded! Epoch {checkpoint["epoch"]}.')
+        return self.G(z)
+
+    def sample_discriminator(self, input):
+        if self.gan_type == 'stylegan':
+            return self.D(input, step=self.step, alpha=1)
+
+        return self.D(input)
 
     def inpaint_loss(self, W, G_output, y):
         context_loss = torch.sum(
@@ -43,7 +68,7 @@ class InpaintModel:
             )
         )
 
-        dgo = self.D(G_output).view(-1)
+        dgo = self.sample_discriminator(G_output).view(-1)
         prior_loss = torch.mul(torch.log(1 - dgo), self.l)
 
         loss = context_loss + prior_loss
@@ -61,8 +86,8 @@ class InpaintModel:
 
     def preprocess(self, masked_image, image_mask):
         resize_transform = transforms.Compose([
-            transforms.Resize(self.config.imageSize),
-            transforms.CenterCrop(self.config.imageSize),
+            transforms.Resize(self.model_config.imageSize),
+            transforms.CenterCrop(self.model_config.imageSize),
             transforms.ToTensor(),
         ])
         normalize_transform = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
@@ -90,19 +115,29 @@ class InpaintModel:
 
     def inpaint(self, masked_image, image_mask):
         image, mask = self.preprocess(masked_image, image_mask)
-        W = self.create_importance_weights(mask)
+        W = self.create_importance_weights(mask, w_size=self.config.w_size)
 
-        z = nn.Parameter(torch.randn((1, self.config.dimLatentVector, 1, 1), device=self.device), requires_grad=True)
+        if self.gan_type == 'stylegan':
+            z = nn.Parameter(torch.randn((1, self.model_config.dimLatentVector), device=self.device),
+                             requires_grad=True)
+        else:
+            z = nn.Parameter(torch.randn((1, self.model_config.dimLatentVector, 1, 1), device=self.device),
+                             requires_grad=True)
+
+        # z = nn.Parameter(torch.randn((1, self.config.dimLatentVector, 1, 1), device=self.device), requires_grad=True)
         optimizer = optim.Adam([z])
 
-        for i in range(1500):
+        for i in range(self.config.iter):
             optimizer.zero_grad()
-            G_output = self.G(z)
+            # G_output = self.G(z)
+            G_output = self.sample_generator(z)
             loss = self.inpaint_loss(W, G_output, image)
             loss.backward()
             optimizer.step()
 
-        G_z = self.G(z)
-        G_z_image, inpainted_image, mask_image = self.postprocess(G_z.detach(), image, mask)
+        # G_z = self.G(z)
+        G_z = self.sample_generator(z)
+        G_z_image, inpainted_image, mask = self.postprocess(G_z.detach(), image, mask)
+        importance_weight = W.permute(1, 2, 0).cpu().numpy()
 
-        return G_z_image, inpainted_image, mask_image, W.permute(1, 2, 0).cpu().numpy()
+        return importance_weight, G_z_image, inpainted_image
