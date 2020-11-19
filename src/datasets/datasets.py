@@ -25,15 +25,15 @@ def create_transform(config):
 
 
 class InpaintDataset(Dataset):
-    def __init__(self, directory, image_size, mask_generator):
+    def __init__(self, directory, transform, mask_generator):
         self.directory = pathlib.Path(directory)
         self.images_filename = list(self.directory.glob('*.jpg'))
-        self.image_size = image_size
+        self.transform = transform
         self.mask_generator = mask_generator
 
     def __apply_mask(self, image, mask):
         image_copy = np.copy(image)
-        image_copy[mask == 0] = 1
+        image_copy[:, mask == 0] = 1
 
         return image_copy
 
@@ -41,9 +41,10 @@ class InpaintDataset(Dataset):
         return len(self.images_filename)
 
     def __getitem__(self, idx):
-        target_image = io.imread(self.images_filename[idx])
-        target_image = transform.resize(target_image, self.image_size)
-        mask = self.mask_generator(target_image)
+        # target_image = io.imread(self.images_filename[idx])
+        target_image = Image.open(self.images_filename[idx])
+        target_image = self.transform(target_image)
+        mask = self.mask_generator()
         corrupted_image = self.__apply_mask(target_image, mask)
 
         return target_image, corrupted_image, mask

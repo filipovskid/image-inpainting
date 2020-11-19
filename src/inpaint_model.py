@@ -69,7 +69,7 @@ class InpaintModel:
         )
 
         dgo = self.sample_discriminator(G_output).view(-1)
-        prior_loss = torch.mul(torch.log(1 - dgo), self.l)
+        prior_loss = torch.mul(torch.sum(torch.log(1 - dgo)), self.l)
 
         loss = context_loss + prior_loss
 
@@ -85,17 +85,18 @@ class InpaintModel:
     #     return torch.from_numpy(np.repeat(importance_weights[np.newaxis, :, :], 3, axis=0)).to(self.device)
 
     def create_importance_weights(self, masks, w_size=7):
+        masks = masks.cpu()
         mask_importance_weights = []
-        masks_2d = masks[:, :, :, 0]
+        masks_2d = masks[:, 0, :, :]
 
         for mask in masks_2d:
             kernel = torch.ones((w_size, w_size))
             kernel = kernel / torch.sum(kernel)
 
             importance_weights = mask * convolve2d(1 - mask, kernel, mode='same', boundary='symm')
-            mask_importance_weights.append(importance_weights.unsqueeze(2).repeat(1, 1, 3))
+            mask_importance_weights.append(importance_weights.unsqueeze(0).repeat(3, 1, 1))
 
-        return torch.stack(mask_importance_weights)
+        return torch.stack(mask_importance_weights).to(self.device)
 
     def preprocess(self, corrupted_images, image_masks):
         # resize_transform = transforms.Compose([
@@ -130,14 +131,14 @@ class InpaintModel:
         return generated_images, inpainted_images, masks
 
     def inpaint(self, corrupted_images, image_masks):
-        W = self.create_importance_weights(image_masks, w_size=self.config.w_size)
         corrupted_images, image_masks = self.preprocess(corrupted_images, image_masks)
+        W = self.create_importance_weights(image_masks, w_size=self.config.w_size)
 
         if self.gan_type == 'stylegan':
-            z = nn.Parameter(torch.randn((1, self.model_config.dimLatentVector), device=self.device),
+            z = nn.Parameter(torch.randn((corrupted_images.size(0), self.model_config.dimLatentVector), device=self.device),
                              requires_grad=True)
         else:
-            z = nn.Parameter(torch.randn((1, self.model_config.dimLatentVector, 1, 1), device=self.device),
+            z = nn.Parameter(torch.randn((corrupted_images.size(0), self.model_config.dimLatentVector, 1, 1), device=self.device),
                              requires_grad=True)
 
         # z = nn.Parameter(torch.randn((1, self.config.dimLatentVector, 1, 1), device=self.device), requires_grad=True)
