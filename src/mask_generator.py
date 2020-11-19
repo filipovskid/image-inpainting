@@ -48,7 +48,7 @@ class MaskGenerator:
         return mask
 
     @staticmethod
-    def rectangle_mask(self, image, props):
+    def rectangle_mask(image, props):
         img_size = image.shape[1]
         mask = np.ones((img_size, img_size, image.shape[2]))
 
