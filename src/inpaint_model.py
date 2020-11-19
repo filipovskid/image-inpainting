@@ -15,7 +15,7 @@ from torchvision import transforms
 import matplotlib.pyplot as plt
 from PIL import Image
 from utils.helpers import NormalizeInverse
-from utils.helpers import binarize_mask
+from utils import helpers
 from utils import poissonblending
 import math
 
@@ -75,47 +75,63 @@ class InpaintModel:
 
         return loss
 
-    def create_importance_weights(self, mask, w_size=7):
-        mask_2d = mask[0, :, :].cpu().numpy()
-        kernel = np.ones((w_size, w_size), dtype=np.float32)
-        kernel = kernel / np.sum(kernel)
+    # def create_importance_weights(self, mask, w_size=7):
+    #     mask_2d = mask[0, :, :].cpu().numpy()
+    #     kernel = np.ones((w_size, w_size), dtype=np.float32)
+    #     kernel = kernel / np.sum(kernel)
+    #
+    #     importance_weights = mask_2d * convolve2d(1 - mask_2d, kernel, mode='same', boundary='symm')
+    #
+    #     return torch.from_numpy(np.repeat(importance_weights[np.newaxis, :, :], 3, axis=0)).to(self.device)
 
-        importance_weights = mask_2d * convolve2d(1 - mask_2d, kernel, mode='same', boundary='symm')
+    def create_importance_weights(self, masks, w_size=7):
+        mask_importance_weights = []
+        masks_2d = masks[:, :, :, 0]
 
-        return torch.from_numpy(np.repeat(importance_weights[np.newaxis, :, :], 3, axis=0)).to(self.device)
+        for mask in masks_2d:
+            kernel = torch.ones((w_size, w_size))
+            kernel = kernel / torch.sum(kernel)
 
-    def preprocess(self, masked_image, image_mask):
-        resize_transform = transforms.Compose([
-            transforms.Resize(self.model_config.imageSize),
-            transforms.CenterCrop(self.model_config.imageSize),
-            transforms.ToTensor(),
-        ])
+            importance_weights = mask * convolve2d(1 - mask, kernel, mode='same', boundary='symm')
+            mask_importance_weights.append(importance_weights.unsqueeze(2).repeat(1, 1, 3))
+
+        return torch.stack(mask_importance_weights)
+
+    def preprocess(self, corrupted_images, image_masks):
+        # resize_transform = transforms.Compose([
+        #     transforms.Resize(self.model_config.imageSize),
+        #     transforms.CenterCrop(self.model_config.imageSize),
+        #     transforms.ToTensor(),
+        # ])
         normalize_transform = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 
-        image = normalize_transform(resize_transform(masked_image)).to(self.device)
-        mask = resize_transform(image_mask).to(self.device)
-        mask = binarize_mask(mask)
+        images = normalize_transform(corrupted_images).to(self.device)
+        masks = image_masks.to(self.device)
+        masks = helpers.binarize_masks(masks)
+        masks = helpers.create_3channel_masks(masks)
 
-        return image, mask
+        return images, masks
 
-    def postprocess(self, generated_output, masked_image, image_mask):
+    def postprocess(self, generated_output, corrupted_images, image_masks):
         inverse_normalization = NormalizeInverse((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 
         # Without blending
         # inpainted_image = (image_mask * masked_image) + ((1 - image_mask) * generated_output)
         # inpainted_image = inverse_normalization(inpainted_image.squeeze(dim=0)).permute(1, 2, 0).cpu().numpy()
 
-        generated_image = inverse_normalization(generated_output.squeeze(dim=0)).permute(1, 2, 0).cpu().numpy()
-        masked_image = inverse_normalization(masked_image).permute(1, 2, 0).cpu().numpy()
-        mask = image_mask.permute(1, 2, 0).cpu().numpy()
+        generated_images = inverse_normalization(generated_output).permute(0, 2, 3, 1).cpu().numpy()
+        corrupted_images = inverse_normalization(corrupted_images).permute(0, 2, 3, 1).cpu().numpy()
+        masks = image_masks.permute(0, 2, 3, 1).cpu().numpy()
 
-        inpainted_image = poissonblending.blend(masked_image, generated_image, 1 - mask)
+        inpainted_images = torch.empty_like(generated_images)
+        for i in range(len(generated_output)):
+            inpainted_images[i] = poissonblending.blend(corrupted_images[i], generated_images[i], 1 - masks[i])
 
-        return generated_image, inpainted_image, mask
+        return generated_images, inpainted_images, masks
 
-    def inpaint(self, masked_image, image_mask):
-        image, mask = self.preprocess(masked_image, image_mask)
-        W = self.create_importance_weights(mask, w_size=self.config.w_size)
+    def inpaint(self, corrupted_images, image_masks):
+        W = self.create_importance_weights(image_masks, w_size=self.config.w_size)
+        corrupted_images, image_masks = self.preprocess(corrupted_images, image_masks)
 
         if self.gan_type == 'stylegan':
             z = nn.Parameter(torch.randn((1, self.model_config.dimLatentVector), device=self.device),
@@ -131,13 +147,13 @@ class InpaintModel:
             optimizer.zero_grad()
             # G_output = self.G(z)
             G_output = self.sample_generator(z)
-            loss = self.inpaint_loss(W, G_output, image)
+            loss = self.inpaint_loss(W, G_output, corrupted_images)
             loss.backward()
             optimizer.step()
 
         # G_z = self.G(z)
         G_z = self.sample_generator(z)
-        G_z_image, inpainted_image, mask = self.postprocess(G_z.detach(), image, mask)
+        G_z_image, inpainted_image, mask = self.postprocess(G_z.detach(), corrupted_images, image_masks)
         importance_weight = W.permute(1, 2, 0).cpu().numpy()
 
         return importance_weight, G_z_image, inpainted_image

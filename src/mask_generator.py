@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 import random
 
 
@@ -22,9 +23,9 @@ class MaskGenerator:
         return mask
 
     @staticmethod
-    def centered_rectangle(img):
-        mask = np.ones(img.shape)
-        h, w = img.shape[:2]
+    def centered_rectangle(image_size):
+        mask = torch.ones(image_size)
+        h, w = image_size
         img_area = w * h
         mask_area = 0
         cx, cy = int(h / 2), int(w / 2)
@@ -42,8 +43,7 @@ class MaskGenerator:
 
             mask_area = (x2 - x1) * (y2 - y1)
 
-        mask[x1:x2, y1:y2, :] = 0
-        # mask[cx, cy] = 1
+        mask[x1:x2, y1:y2] = 0
 
         return mask
 
