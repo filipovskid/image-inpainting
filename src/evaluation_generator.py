@@ -1,10 +1,10 @@
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import pathlib
 
-from .inpaint_model import InpaintModel
-from .DCGAN.DCGAN_config import _C as _dcganConfig
-from .styleGAN.styleGAN_config import _C as _styleganConfig
-from .datasets.datasets import InpaintDataset
+from inpaint_model import InpaintModel
+from DCGAN.DCGAN_config import _C as _dcganConfig
+from styleGAN.styleGAN_config import _C as _styleganConfig
+from datasets.datasets import InpaintDataset
 
 import torch
 import torchvision
@@ -63,8 +63,8 @@ def save_evaluation(image_dicts, names, output_path):
     images_data = []
 
     for data in image_dicts:
-        if type(data.images) == np.ndarray:
-            images_data.append({'name': data.name, 'images': data.images})
+        if type(data['images']) == np.ndarray:
+            images_data.append({'name': data['name'], 'images':tensor_from_ndarray(data['images'])})
         else:
             images_data.append(data)
 
@@ -73,18 +73,18 @@ def save_evaluation(image_dicts, names, output_path):
         save_path.mkdir(parents=True, exist_ok=True)
 
         for data in images_data:
-            utils.save_image(data.images[i], save_path.joinpath(f'{data.name}-{name}'))
+            utils.save_image(data['images'][i].float(), save_path.joinpath(f'{data["name"]}-{name}'))
 
 
 def inpaint_images(gt_path, masks_path, image_size, batch_size, output_path, gt_output_path, inpaint_output_path,
                    model_type, checkpoint):
     inpaint_models = {
-        'dcgan': dcgan_inpaint_model(checkpoint),
-        'stylegan': stylegan_inpaint_model(checkpoint)
+        'dcgan': lambda chkp: dcgan_inpaint_model(chkp),
+        'stylegan': lambda chkp: stylegan_inpaint_model(chkp)
     }
     transform, mask_transform = get_transforms(image_size)
 
-    inpainter = inpaint_models[model_type]
+    inpainter = inpaint_models[model_type](checkpoint)
     inpaint_dataset = InpaintDataset(gt_path, masks_path, transform=transform, mask_transform=mask_transform)
     batch_size = len(inpaint_dataset) if batch_size == 0 else batch_size
     dataloader = DataLoader(inpaint_dataset, batch_size=batch_size)
