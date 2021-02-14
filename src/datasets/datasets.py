@@ -68,6 +68,7 @@ class InpaintDataset(Dataset):
         return len(self.gt_image_filenames)
 
     def __getitem__(self, idx):
+        name = self.gt_image_filenames[idx].name
         target_image = Image.open(self.gt_image_filenames[idx])
         target_image = self.transform(target_image)
 
@@ -81,4 +82,4 @@ class InpaintDataset(Dataset):
         mask = self.__create_2channel_mask(mask)
         corrupted_image = self.__apply_mask(target_image, mask)
 
-        return target_image, corrupted_image, mask
+        return target_image, corrupted_image, mask, name
