@@ -73,7 +73,7 @@ def save_evaluation(image_dicts, names, output_path):
         save_path.mkdir(parents=True, exist_ok=True)
 
         for data in images_data:
-            utils.save_image(data.images[i], save_path.joinpath(f'{data.name}_{name}'))
+            utils.save_image(data.images[i], save_path.joinpath(f'{data.name}-{name}'))
 
 
 def inpaint_images(gt_path, masks_path, image_size, batch_size, output_path, gt_output_path, inpaint_output_path,
