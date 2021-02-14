@@ -27,7 +27,7 @@ def create_transform(config):
 class InpaintDataset(Dataset):
     def __init__(self, directory, transform, mask_generator):
         self.directory = pathlib.Path(directory)
-        self.images_filename = list(self.directory.glob('*.jpg'))
+        self.images_filename = list(self.directory.glob('**/*'))
         self.transform = transform
         self.mask_generator = mask_generator
 

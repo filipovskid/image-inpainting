@@ -124,7 +124,7 @@ class InpaintModel:
         corrupted_images = inverse_normalization(corrupted_images).permute(0, 2, 3, 1).cpu().numpy()
         masks = image_masks.permute(0, 2, 3, 1).cpu().numpy()
 
-        inpainted_images = torch.empty_like(generated_images)
+        inpainted_images = np.empty_like(generated_images)
         for i in range(len(generated_output)):
             inpainted_images[i] = poissonblending.blend(corrupted_images[i], generated_images[i], 1 - masks[i])
 
@@ -155,6 +155,6 @@ class InpaintModel:
         # G_z = self.G(z)
         G_z = self.sample_generator(z)
         G_z_image, inpainted_image, mask = self.postprocess(G_z.detach(), corrupted_images, image_masks)
-        importance_weight = W.permute(1, 2, 0).cpu().numpy()
+        importance_weight = W.permute(0, 2, 3, 1).cpu().numpy()
 
         return importance_weight, G_z_image, inpainted_image
