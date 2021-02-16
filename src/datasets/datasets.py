@@ -77,7 +77,7 @@ class InpaintDataset(Dataset):
         else:
             mask = Image.open(self.mask_filenames[idx])
 
-        mask = np.asarray(mask)
+        mask = np.asarray(mask).astype(np.uint8)
         mask = self.__binarize_masks(mask)
         mask = self.__create_2channel_mask(mask)
         corrupted_image = self.__apply_mask(target_image, mask)
