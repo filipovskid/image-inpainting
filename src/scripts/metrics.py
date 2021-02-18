@@ -20,6 +20,13 @@ def parse_args():
     return args
 
 
+def compare_mae(img_true, img_test):
+    img_true = img_true.astype(np.float32)
+    img_test = img_test.astype(np.float32)
+
+    return np.sum(np.abs(img_true - img_test)) / np.sum(img_true + img_test)
+
+
 args = parse_args()
 for arg in vars(args):
     print('[%s] =' % arg, getattr(args, arg))
@@ -45,7 +52,7 @@ for gt_file in gt_files:
     image_gt = (imageio.imread(gt_file) / 255.0).astype(np.float32)
     image_pred = (imageio.imread(predicted_path.joinpath(name)) / 255.0).astype(np.float32)
 
-    mae.append(mean_squared_error(image_gt, image_pred))
+    mae.append(compare_mae(image_gt, image_pred))
     psnr.append(peak_signal_noise_ratio(image_gt, image_pred, data_range=1))
     ssim.append(structural_similarity(image_gt, image_pred, data_range=1, win_size=args.win_size, multichannel=True))
 
