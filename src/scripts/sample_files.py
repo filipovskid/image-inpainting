@@ -18,7 +18,7 @@ def parse_args():
 
 def list_files(dir_path):
     p = dir_path.glob('**/*')
-    return [x for x in p if x.is_file()]
+    return sorted([x for x in p if x.is_file()])
 
 
 def sample_list(item_list, size, replace=False, seed=42):
