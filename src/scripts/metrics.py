@@ -7,6 +7,7 @@ import pandas as pd
 from skimage.metrics import mean_squared_error
 from skimage.metrics import peak_signal_noise_ratio
 from skimage.metrics import structural_similarity
+from skimage.color import rgb2gray
 
 
 def parse_args():
@@ -52,6 +53,9 @@ for gt_file in gt_files:
     image_gt = (imageio.imread(gt_file) / 255.0).astype(np.float32)
     image_pred = (imageio.imread(predicted_path.joinpath(name)) / 255.0).astype(np.float32)
 
+    image_gt = rgb2gray(image_gt)
+    image_pred = rgb2gray(image_pred)
+    
     mae.append(compare_mae(image_gt, image_pred))
     psnr.append(peak_signal_noise_ratio(image_gt, image_pred, data_range=1))
     ssim.append(structural_similarity(image_gt, image_pred, data_range=1, win_size=args.win_size, multichannel=True))
