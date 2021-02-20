@@ -18,9 +18,14 @@ class NormalizeInverse(torchvision.transforms.Normalize):
         return super().__call__(tensor.clone())
 
 
-def binarize_mask(mask):
-    bmask = torch.tensor(mask)
-    bmask[mask > 0] = 1
-    bmask[mask <= 0] = 0
+def binarize_masks(masks):
+    bmasks = torch.tensor(masks)
+    bmasks[masks > 0] = 1
+    bmasks[masks <= 0] = 0
 
-    return bmask
+    return bmasks
+
+
+def create_3channel_masks(masks):
+    assert(len(masks.size()[1:]) == 2)
+    return masks.unsqueeze(1).repeat(1, 3, 1, 1)

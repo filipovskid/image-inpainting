@@ -40,7 +40,7 @@ class DCGANTrainer:
     def train(self, data_root, checkpoints_dir=None, save_epoch=10, num_epochs=None):
         # Config
         if num_epochs:
-            self.config.nEpoch = num_epochs
+            self.num_epochs = num_epochs
 
         # Create a dataset and dataloader
         self.dataset = get_image_dataset(data_root, self.config)
