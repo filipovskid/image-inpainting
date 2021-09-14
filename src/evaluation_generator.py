@@ -27,6 +27,7 @@ def parse_args():
     parser.add_argument('--type', choices=['dcgan', 'stylegan'], help='GAN model')
     parser.add_argument('--checkpoint', help="Path to model's checkpoint", type=pathlib.Path)
     parser.add_argument('--output-path', help='Path to output data', type=pathlib.Path, dest='output_path')
+    parser.add_argument('--skip', help='Skip N data entries', type=int, dest='skip')
     args = parser.parse_args()
 
     return args
@@ -77,7 +78,7 @@ def save_evaluation(image_dicts, names, output_path):
 
 
 def inpaint_images(gt_path, masks_path, image_size, batch_size, output_path, gt_output_path, inpaint_output_path,
-                   model_type, checkpoint):
+                   model_type, checkpoint, skip=0):
     inpaint_models = {
         'dcgan': lambda chkp: dcgan_inpaint_model(chkp),
         'stylegan': lambda chkp: stylegan_inpaint_model(chkp)
@@ -85,7 +86,7 @@ def inpaint_images(gt_path, masks_path, image_size, batch_size, output_path, gt_
     transform, mask_transform = get_transforms(image_size)
 
     inpainter = inpaint_models[model_type](checkpoint)
-    inpaint_dataset = InpaintDataset(gt_path, masks_path, transform=transform, mask_transform=mask_transform)
+    inpaint_dataset = InpaintDataset(gt_path, masks_path, transform=transform, mask_transform=mask_transform, skip=skip)
     batch_size = len(inpaint_dataset) if batch_size == 0 else batch_size
     dataloader = DataLoader(inpaint_dataset, batch_size=batch_size)
 
@@ -127,7 +128,8 @@ def main():
                    gt_output_path=gt_output_path,
                    inpaint_output_path=inpainted_output_path,
                    model_type=args.type,
-                   checkpoint=args.checkpoint)
+                   checkpoint=args.checkpoint, 
+                   skip=args.skip)
 
 
 if __name__ == "__main__":

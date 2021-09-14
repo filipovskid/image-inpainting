@@ -30,11 +30,11 @@ def list_files(dir_path):
 
 
 class InpaintDataset(Dataset):
-    def __init__(self, gt_path, masks_path, transform, mask_transform=None):
+    def __init__(self, gt_path, masks_path, transform, mask_transform=None, skip=0):
         self.gt_path = pathlib.Path(gt_path)
         self.masks_path = pathlib.Path(masks_path)
-        self.gt_image_filenames = sorted(list_files(self.gt_path))
-        self.mask_filenames = sorted(list_files(self.masks_path))
+        self.gt_image_filenames = sorted(list_files(self.gt_path))[skip:]
+        self.mask_filenames = sorted(list_files(self.masks_path))[skip:]
 
         min_files = min(len(self.gt_image_filenames), len(self.mask_filenames))
         assert(min_files > 0)
