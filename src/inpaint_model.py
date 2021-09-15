@@ -18,7 +18,7 @@ from utils.helpers import NormalizeInverse
 from utils import helpers
 from utils import poissonblending
 import math
-
+from tqdm import tqdm
 
 class InpaintModel:
     def __init__(self, model_filename, config, gan_type):
@@ -144,7 +144,7 @@ class InpaintModel:
         # z = nn.Parameter(torch.randn((1, self.config.dimLatentVector, 1, 1), device=self.device), requires_grad=True)
         optimizer = optim.Adam([z])
 
-        for i in range(self.config.iter):
+        for i in tqdm(range(self.config.iter)):
             optimizer.zero_grad()
             # G_output = self.G(z)
             G_output = self.sample_generator(z)

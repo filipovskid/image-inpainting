@@ -90,7 +90,8 @@ def inpaint_images(gt_path, masks_path, image_size, batch_size, output_path, gt_
     batch_size = len(inpaint_dataset) if batch_size == 0 else batch_size
     dataloader = DataLoader(inpaint_dataset, batch_size=batch_size)
 
-    for target_images, corrupted_images, masks, names in dataloader:
+    for i, (target_images, corrupted_images, masks, names) in enumerate(dataloader):
+        print('Batch:', i/len(dataloader))
         importance_weights, G_z, inpainted_images = inpainter.inpaint(corrupted_images=corrupted_images,
                                                                     image_masks=masks)
         image_dicts = [
